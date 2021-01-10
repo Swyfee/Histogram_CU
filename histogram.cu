@@ -88,9 +88,11 @@ static void histogram(unsigned int *input, unsigned int *histo, unsigned int dat
 
     for (int i = th; i < dataSize; i += blockDim.x * gridDim.x)
     {
+        //Atomic add is used as 2 datas can have the same number, to not have issues if they add 1 at the same time
         atomicAdd(&local_histogram[input[i]], 1);
     }
     __syncthreads();
+        //add / blocks
     for (int z = threadIdx.x; z < binSize; z += blockDim.x)
     {
         atomicAdd(&histo[z], local_histogram[z]);
