@@ -1,0 +1,1 @@
+The purpose of this program is to implement an efficient histogramming algorithm for an input  array  of integers within a given range using cuda and parallelization.
