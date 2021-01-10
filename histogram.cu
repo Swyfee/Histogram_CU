@@ -106,11 +106,7 @@ void result(unsigned int *res, int threadNb, unsigned int Size )
         printf("%d", res[i]);
         if (i != Size - 1)
         {
-            printf("-");
-        }
-        if (i == Size - 1)
-        {
-            printf("]\n");
+            printf("|");
         }
     }
 }
@@ -205,26 +201,24 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     double gigaFlops = (dataSize * 1.0e-9f) / (msecTotal / 1000.0f);
     double gigaFlops_single = (dataSize * 1.0e-9f) / (msecTotal_single / 1000.0f);
 
-    // Print the output
+    // Print the histograms if the parameter 
     if (display == 1)
     {
         result(histo, threadNb, binSize);
         result(histo_single, 1, binSize);
     }
-    // Compare the results
+    // Compare the results of the two histograms
     if (compare(histo, histo_single, binSize))
     {
-    printf("All good ! Histograms match\n");
+        printf("All good ! Histograms match\n");
     }
     else
     {
         printf("Wrong ! Histograms don't match\n");
     }
     // Print performances
-    printf("%d threads :\nCuda processing time = %.3fms, \n 
-    Perf = %.3f Gflops\n",threadNb, msecTotal, gigaFlops);
-    printf("1 thread :\nCuda processing time = %.3fms, \n
-    Perf = %.3f Gflops\n", msecTotal_single, gigaFlops_single);
+    printf("%d threads :\nCuda processing time = %.3fms, \n Perf = %.3f Gflops\n",threadNb, msecTotal, gigaFlops);
+    printf("1 thread :\nCuda processing time = %.3fms, \n Perf = %.3f Gflops\n", msecTotal_single, gigaFlops_single);
     checkCudaErrors(cudaFree(d_data));
     checkCudaErrors(cudaFree(d_histo));
     free(histo);
@@ -236,13 +230,11 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
 int main(int argc, char **argv)
 {
     int print = 0;
-    int smCount;
     unsigned int binSize = MAX_BINS;
     unsigned long long ds = 256;
 
     char *dataSize = NULL;
     cudaDeviceProp cudaprop;
-    smCount = prop.multiProcessorCount;
 
     // retrieve device
     int dev = findCudaDevice(argc, (const char **)argv);
