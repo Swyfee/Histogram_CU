@@ -8,43 +8,7 @@
 #include <helper_cuda.h>
 
 #define MAX_BINS 4096
-
-int getSPcores(cudaDeviceProp devProp)
-{
-    int cores = 0;
-    int mp = devProp.multiProcessorCount;
-    switch (devProp.major){
-     case 2: // Fermi
-      if (devProp.minor == 1) cores = mp * 48;
-      else cores = mp * 32;
-      break;
-     case 3: // Kepler
-      cores = mp * 192;
-      break;
-     case 5: // Maxwell
-      cores = mp * 128;
-      break;
-     case 6: // Pascal
-      if ((devProp.minor == 1) || (devProp.minor == 2)) cores = mp * 128;
-      else if (devProp.minor == 0) cores = mp * 64;
-      else printf("Unknown device type\n");
-      break;
-     case 7: // Volta and Turing
-      if ((devProp.minor == 0) || (devProp.minor == 5)) cores = mp * 64;
-      else printf("Unknown device type\n");
-      break;
-     case 8: // Ampere
-      if (devProp.minor == 0) cores = mp * 64;
-      else if (devProp.minor == 6) cores = mp * 128;
-      else printf("Unknown device type\n");
-      break;
-     default:
-      printf("Unknown device type\n");
-      break;
-      }
-    return cores;
-}
-
+//Comparing the multi and single threaded histograms
 bool compare(unsigned int *one, unsigned int *two, int size)
 {
     for(int p = 0; p<size; p++)
@@ -56,7 +20,7 @@ bool compare(unsigned int *one, unsigned int *two, int size)
     }
     return true;
 }
-
+//Printing the datas if the required parameter is set to 1
 void Data(unsigned int *data, unsigned int dataSize)
 {
     printf("Data generated : ");
@@ -78,6 +42,7 @@ __global__
 static void histogram(unsigned int *input, unsigned int *histo, unsigned int dataSize, unsigned int binSize)
 {
     int th = blockIdx.x * blockDim.x + threadIdx.x;
+//Using extern shared and setting its size when calling the kernel
     extern __shared__ int local_histogram[];
 //init histo
     for (int y = threadIdx.x; y < binSize; y += blockDim.x)
@@ -85,7 +50,7 @@ static void histogram(unsigned int *input, unsigned int *histo, unsigned int dat
         local_histogram[y] = 0;
     }
     __syncthreads();
-
+//Filling the results on the histogram
     for (int i = th; i < dataSize; i += blockDim.x * gridDim.x)
     {
         //Atomic add is used as 2 datas can have the same number, to not have issues if they add 1 at the same time
@@ -99,7 +64,7 @@ static void histogram(unsigned int *input, unsigned int *histo, unsigned int dat
     }
 
 }
-
+//Printing the results
 void result(unsigned int *res, int threadNb, unsigned int Size )
 {
     printf("Result for %d threads: [", threadNb);
@@ -144,6 +109,7 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     // Generate data set on the host
     printf("Generation of data sets randomly.\n");
     srand(time(NULL));
+    srand(time(NULL));
     for (int i = 0; i < dataSize; i++){
         data[i] = rand() % binSize;
     }
@@ -161,6 +127,7 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
 
     // Copy the data to the device
     checkCudaErrors(cudaMemcpy(d_data, data, sizeof(unsigned int) * dataSize, cudaMemcpyHostToDevice));
+
     // Record the start event
     checkCudaErrors(cudaEventCreate(&start));
     checkCudaErrors(cudaEventCreate(&stop));
@@ -194,7 +161,6 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     checkCudaErrors(cudaMemcpy(histo_single, d_histo, sizeof(unsigned int) * binSize, cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaEventRecord(stop_single, NULL));
     checkCudaErrors(cudaEventSynchronize(stop_single));
-
     float msecTotal = 0.0f;
     float msecTotal_single = 0.0f;
     checkCudaErrors(cudaEventElapsedTime(&msecTotal, start, stop));
@@ -226,10 +192,10 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     free(histo_single);
     free(data);
 
-    }
+}
 
-    int main(int argc, char **argv)
-    {
+int main(int argc, char **argv)
+{
     int print = 0;
     unsigned int binSize = MAX_BINS;
     unsigned long long ds = 256;
@@ -240,7 +206,7 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     // retrieve device
     int dev = findCudaDevice(argc, (const char **)argv);
     cudaGetDeviceProperties(&cudaprop, dev);
-
+    //Retrieving parameters
     if (checkCmdLineFlag(argc, (const char **)argv, "size"))
     {
         getCmdLineArgumentString(argc, (const char **)argv, "size", &dataSize);
@@ -257,14 +223,14 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
         printf("Error: Data size > 4,294,967,296");
         exit(EXIT_FAILURE);
     }
-    //Defining the number of threads to follow the need (ds) with max value 256 and < 1024
+    //Defining the number of threads to follow the need (ds) with max value 256 (multiple of 32) and < 1024
     int nbThread = min((int)ds, 256);
     printf("nb thread: %d \n", nbThread);
-        //Defining the number of blocks to follow the need (if ds = 500 only 2 blocks) with max value the compute capability of the GPU
-        //The compute capability of this GPU is 1920
-        int nbBlock =  min(((int)ds/256),getSPcores(cudaprop));
-        if (nbBlock == 0) nbBlock = 1;
-        printf("nbblock: %d \n", nbBlock);
-        wrapper(ds, binSize, print, nbThread, nbBlock);
-        return EXIT_SUCCESS;
+    //Defining the number of blocks to follow the need (if ds = 500 only 2 blocks) with max value a multiple of 30
+    int nbBlock =  min(((int)ds/256),18000);
+    //if the data size is below 256 we still have to have atleast 1 block
+    if (nbBlock == 0) nbBlock = 1;
+    printf("nbblock: %d \n", nbBlock);
+    wrapper(ds, binSize, print, nbThread, nbBlock);
+    return EXIT_SUCCESS;
 }
