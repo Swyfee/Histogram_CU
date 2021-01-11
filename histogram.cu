@@ -161,7 +161,6 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
 
     // Copy the data to the device
     checkCudaErrors(cudaMemcpy(d_data, data, sizeof(unsigned int) * dataSize, cudaMemcpyHostToDevice));
-
     // Record the start event
     checkCudaErrors(cudaEventCreate(&start));
     checkCudaErrors(cudaEventCreate(&stop));
@@ -203,7 +202,7 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     double gigaFlops = (dataSize * 1.0e-9f) / (msecTotal / 1000.0f);
     double gigaFlops_single = (dataSize * 1.0e-9f) / (msecTotal_single / 1000.0f);
 
-    // Print the histograms if the parameter 
+    // Print the histograms if the parameter
     if (display == 1)
     {
         result(histo, threadNb, binSize);
@@ -226,11 +225,11 @@ void wrapper(unsigned int dataSize, unsigned int binSize, int display, int threa
     free(histo);
     free(histo_single);
     free(data);
-    
-}
 
-int main(int argc, char **argv)
-{
+    }
+
+    int main(int argc, char **argv)
+    {
     int print = 0;
     unsigned int binSize = MAX_BINS;
     unsigned long long ds = 256;
@@ -258,10 +257,14 @@ int main(int argc, char **argv)
         printf("Error: Data size > 4,294,967,296");
         exit(EXIT_FAILURE);
     }
-    //Defining the number of threads multiple of 32 and < 1024
-    int nbThread = 256;
-    //Defining the number of blocks
-    int nbBlock =  getSPcores(cudaprop);
-    wrapper(ds, binSize, print, nbThread, nbBlock);
-    return EXIT_SUCCESS;
+    //Defining the number of threads to follow the need (ds) with max value 256 and < 1024
+    int nbThread = min((int)ds, 256);
+    printf("nb thread: %d \n", nbThread);
+        //Defining the number of blocks to follow the need (if ds = 500 only 2 blocks) with max value the compute capability of the GPU
+        //The compute capability of this GPU is 1920
+        int nbBlock =  min(((int)ds/256),getSPcores(cudaprop));
+        if (nbBlock == 0) nbBlock = 1;
+        printf("nbblock: %d \n", nbBlock);
+        wrapper(ds, binSize, print, nbThread, nbBlock);
+        return EXIT_SUCCESS;
 }
